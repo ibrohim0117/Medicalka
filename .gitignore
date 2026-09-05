@@ -28,8 +28,6 @@ secrets/
 
 # Lokal ma'lumotlar bazasi
 *.db
-*.sqlite
-*.sqlite3
 
 # Test / lint
 .pytest_cache/

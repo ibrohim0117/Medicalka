@@ -39,8 +39,6 @@ secrets
 
 # Lokal ma'lumotlar bazasi
 *.db
-*.sqlite
-*.sqlite3
 
 # Test / lint
 # Testlar runtime tasvirga kerak emas. Agar CI'da konteyner ichida

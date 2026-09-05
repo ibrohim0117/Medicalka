@@ -14,6 +14,8 @@ from importlib.metadata import version as package_version
 
 from fastapi import FastAPI
 
+from app.db.session import engine
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -39,7 +41,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     """Ishga tushish va to'xtash paytidagi amallar."""
     logger.info("Medicalka Social %s ishga tushdi", VERSION)
     yield
-    # TODO: await dispose_engine()  — app.db.session yozilgach
+    await engine.dispose()
     logger.info("Medicalka Social to'xtatildi")
 
 

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
         """Celery va Alembic uchun sinxron driver (asyncpg -> psycopg2)."""
         if self.SYNC_DATABASE_URL:
             return self.SYNC_DATABASE_URL
-        return self.DATABASE_URL.replace("+asyncpg", "+psycopg2").replace("+aiosqlite", "")
+        return self.DATABASE_URL.replace("+asyncpg", "+psycopg2")
 
 
 @lru_cache

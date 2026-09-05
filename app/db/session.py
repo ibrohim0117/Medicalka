@@ -1,11 +1,29 @@
-"""Asinxron engine va sessiya fabrikasi (FastAPI uchun).
+"""Async engine va sessiya fabrikasi — FastAPI uchun."""
 
-Bu yerda nima bo'ladi:
-    * `engine = create_async_engine(settings.async_database_url, ...)`
-    * `AsyncSessionLocal = async_sessionmaker(bind=engine, ...)`
-    * `async def get_session()` — FastAPI dependency, so'rov davomida
-      bitta sessiya beradi va xatolikda rollback qiladi
-"""
+from collections.abc import AsyncGenerator
 
-# TODO: from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-# TODO: from app.core.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.config import settings
+
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DB_ECHO,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_pre_ping=True,  # uzilgan ulanishni ishlatishdan oldin tekshiradi
+)
+
+# expire_on_commit=False: commit'dan keyin obyektlarni qayta yuklamaydi,
+# async'da bu "greenlet" xatosiga olib kelardi.
+AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency — bitta so'rovga bitta sessiya.
+
+    `async with` chiqishda sessiyani yopadi; commit qilinmagan
+    tranzaksiya o'z-o'zidan bekor bo'ladi.
+    """
+    async with AsyncSessionLocal() as session:
+        yield session
