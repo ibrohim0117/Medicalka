@@ -22,8 +22,10 @@ x-app-common: &app-common
   environment: &app-env
     # `.env` dagi qiymatlarni ustidan yozamiz: konteyner tarmog'ida
     # xizmatlar `localhost` emas, o'z nomi bilan topiladi.
-    POSTGRES_HOST: db
-    POSTGRES_PORT: "5432"
+    #
+    # SYNC_DATABASE_URL berilmaydi — config.py uni DATABASE_URL dan
+    # o'zi hosil qiladi (asyncpg -> psycopg2).
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-medicalka}:${POSTGRES_PASSWORD:-medicalka}@db:5432/${POSTGRES_DB:-medicalka}
     # Redis bazalari ataylab ajratilgan — kalitlar aralashib ketmasligi
     # va `FLUSHDB` bir-birini o'chirmasligi uchun.
     REDIS_URL: redis://redis:6379/0              # umumiy kesh
