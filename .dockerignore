@@ -1,0 +1,77 @@
+#  Docker build kontekstidan chiqariladigan fayllar.
+#  Maqsad: kontekstni kichik saqlash va sirlarni tasvirga tushirmaslik.
+#
+#  DIQQAT: `README.md`, `pyproject.toml`, `alembic.ini`, `migrations/`
+#  va `app/` bu yerda YO'Q — ular build uchun zarur.
+#  (pyproject.toml da `readme = "README.md"` yozilgan, fayl bo'lmasa
+#  setuptools build to'xtaydi.)
+
+# Git
+.git
+.gitignore
+.gitattributes
+.github
+
+# Python
+__pycache__
+**/__pycache__
+*.py[cod]
+build
+dist
+*.egg-info
+.eggs
+
+# Virtual muhitlar
+# Kontekstning eng katta qismi — usiz build sezilarli tez ketadi.
+.venv
+venv
+ENV
+env
+
+# Sirlar (!)
+# Tasvirga tushib qolmasligi shart. Sozlamalar ishga tushirish vaqtida
+# `env_file` yoki `environment` orqali beriladi.
+.env
+.env.*
+*.pem
+*.key
+secrets
+
+# Lokal ma'lumotlar bazasi
+*.db
+*.sqlite
+*.sqlite3
+
+# Test / lint
+# Testlar runtime tasvirga kerak emas. Agar CI'da konteyner ichida
+# `pytest` ishlatmoqchi bo'lsangiz, `tests` va `.dockerignore` dan
+# ushbu ikki satrni olib tashlang.
+tests
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.tox
+.coverage
+.coverage.*
+coverage.xml
+htmlcov
+
+# Celery
+celerybeat-schedule*
+celerybeat.pid
+
+# Docker o'zi
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Loglar
+*.log
+logs
+
+# Muharrir va OS
+.idea
+.vscode
+*.swp
+.DS_Store
+Thumbs.db
