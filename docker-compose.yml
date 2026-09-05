@@ -1,0 +1,133 @@
+#  Medicalka Social — lokal ishlab chiqish muhiti
+#
+#  Ishga tushirish:  cp .env.example .env  &&  docker compose up --build
+#  To'xtatish:       docker compose down
+#  Ma'lumot bilan:   docker compose down -v   ← volume'lar ham o'chadi (!)
+#
+#  DIQQAT: `.env` dagi o'zgaruvchi nomlari `app/core/config.py` dagi
+#  `Settings` maydonlari bilan bir xil bo'lishi shart. Nomi mos kelmasa
+#  pydantic uni jimgina e'tiborsiz qoldiradi va sozlama standart qiymatda
+#  qolib ketadi — xato faqat keyinroq, kutilmagan joyda chiqadi.
+
+name: medicalka
+
+# Uchta ilova xizmati uchun umumiy qism
+# YAML langari (anchor) — api / worker / beat da takrorlamaslik uchun.
+x-app-common: &app-common
+  build:
+    context: .
+    target: runtime
+  restart: unless-stopped
+  env_file: .env
+  environment: &app-env
+    # `.env` dagi qiymatlarni ustidan yozamiz: konteyner tarmog'ida
+    # xizmatlar `localhost` emas, o'z nomi bilan topiladi.
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+    # Redis bazalari ataylab ajratilgan — kalitlar aralashib ketmasligi
+    # va `FLUSHDB` bir-birini o'chirmasligi uchun.
+    REDIS_URL: redis://redis:6379/0              # umumiy kesh
+    CELERY_BROKER_URL: redis://redis:6379/1      # navbat
+    CELERY_RESULT_BACKEND: redis://redis:6379/2  # natijalar
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  # Ma'lumotlar bazasi
+  db:
+    image: postgres:16-alpine
+    container_name: medicalka-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-medicalka}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medicalka}
+      POSTGRES_DB: ${POSTGRES_DB:-medicalka}
+    volumes:
+      # Nomli volume — konteyner o'chsa ham ma'lumot saqlanadi.
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_EXPOSED_PORT:-5432}:5432"
+    healthcheck:
+      # `-U` va `-d` shart: usiz pg_isready boshqa foydalanuvchini tekshiradi.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-medicalka} -d ${POSTGRES_DB:-medicalka}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: medicalka-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # API
+  api:
+    <<: *app-common
+    container_name: medicalka-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    # Bitta buyruq bilan ko'tarilish: avval migratsiyalar, keyin server.
+    # `alembic upgrade head` xato bersa `&&` uvicorn'ni ishga tushirmaydi —
+    # yarim sozlangan baza ustida server ko'tarilib qolmaydi.
+    command:
+      - sh
+      - -c
+      - |
+        echo "→ Migratsiyalar qo'llanmoqda..."
+        alembic upgrade head
+        echo "→ Server ishga tushmoqda..."
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  # Celery worker
+  worker:
+    <<: *app-common
+    container_name: medicalka-worker
+    command:
+      - celery
+      - -A
+      - app.worker.celery_app:celery_app
+      - worker
+      - --loglevel=info
+      - --concurrency=2
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app:celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Celery beat
+  beat:
+    <<: *app-common
+    container_name: medicalka-beat
+    command:
+      - celery
+      - -A
+      - app.worker.celery_app:celery_app
+      - beat
+      - --loglevel=info
+      # Beat oxirgi ishga tushirilgan vazifalar vaqtini shu faylga yozadi.
+      # Nomli volume'da saqlanadi — qayta ishga tushganda vazifalar
+      # noo'rin takrorlanmaydi. Katalog Dockerfile'da appuser nomiga
+      # yaratilgan, shuning uchun yozish huquqi bor.
+      - --schedule=/var/lib/celery/celerybeat-schedule
+    volumes:
+      - beatdata:/var/lib/celery
+
+volumes:
+  pgdata:
+  redisdata:
+  beatdata:
