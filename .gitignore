@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Build artefaktlari
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual muhitlar
+.venv/
+venv/
+ENV/
+env/
+
+# Sirlar (!)
+# `.env.example` ataylab kuzatiladi — u namuna, sir emas.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Lokal ma'lumotlar bazasi
+*.db
+*.sqlite
+*.sqlite3
+
+# Test / lint
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Celery
+celerybeat-schedule*
+celerybeat.pid
+
+# Loglar
+*.log
+logs/
+
+# Muharrir va OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
