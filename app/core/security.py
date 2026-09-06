@@ -1,5 +1,7 @@
 """Parol xeshlash (argon2) va JWT tokenlar."""
 
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -76,3 +78,18 @@ def decode_token(token: str, expected_type: TokenType = "access") -> dict[str, A
             f"'{expected_type}' turidagi token kutilgan edi, '{payload['type']}' keldi"
         )
     return payload
+
+
+def generate_verification_token() -> str:
+    """Email tasdiqlash uchun bir martalik tasodifiy token (ochiq matn)."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_verification_token(token: str) -> str:
+    """Bazada saqlanadigan sha256 xeshi — 64 belgi.
+
+    Parol emas, shuning uchun argon2 kerak emas: token allaqachon tasodifiy
+    va uzun, uni lug'at bo'yicha topib bo'lmaydi. Xeshlash esa baza sizib
+    chiqqanda tokenlardan foydalanishning oldini oladi.
+    """
+    return hashlib.sha256(token.encode()).hexdigest()
