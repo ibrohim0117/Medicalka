@@ -31,7 +31,7 @@ class PostService:
         return post
 
     async def list_posts(self, params: PaginationParams) -> tuple[Sequence[Post], int]:
-        return await self.posts.list_posts(offset=params.offset, limit=params.size)
+        return await self.posts.list_posts(offset=params.offset, limit=params.page_size)
 
     async def create(self, user: User, data: PostCreate) -> Post:
         post = await self.posts.create(author_id=user.id, title=data.title, content=data.content)

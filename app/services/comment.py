@@ -23,7 +23,9 @@ class CommentService:
         self, post_id: uuid.UUID, params: PaginationParams
     ) -> tuple[Sequence[Comment], int]:
         await self._require_post(post_id)
-        return await self.comments.list_for_post(post_id, offset=params.offset, limit=params.size)
+        return await self.comments.list_for_post(
+            post_id, offset=params.offset, limit=params.page_size
+        )
 
     async def create(self, post_id: uuid.UUID, user: User, data: CommentCreate) -> Comment:
         await self._require_post(post_id)
