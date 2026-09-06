@@ -2,13 +2,14 @@
 
 import uuid
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import CursorResult, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Post, User, VerificationToken
+from app.models import Post, User, VerificationToken, VerificationTokenType
 
 
 class UserRepository:
@@ -87,3 +88,44 @@ class VerificationTokenRepository:
         self.session.add(token)
         await self.session.flush()
         return token
+
+    async def get_latest_for_user(
+        self,
+        user_id: uuid.UUID,
+        token_type: VerificationTokenType = VerificationTokenType.EMAIL_VERIFY,
+    ) -> VerificationToken | None:
+        """Foydalanuvchining eng oxirgi tokeni — sovish davrini hisoblash uchun."""
+        stmt = (
+            select(VerificationToken)
+            .where(
+                VerificationToken.user_id == user_id,
+                VerificationToken.type == token_type,
+            )
+            .order_by(VerificationToken.created_at.desc())
+            .limit(1)
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def invalidate_active(
+        self,
+        user_id: uuid.UUID,
+        token_type: VerificationTokenType = VerificationTokenType.EMAIL_VERIFY,
+    ) -> int:
+        """Ishlatilmagan tokenlarni bekor qiladi.
+
+        Yangi token berilganda eskisi ishlamasin — bir vaqtda faqat
+        bitta faol havola bo'ladi.
+        """
+        natija = cast(
+            CursorResult[Any],
+            await self.session.execute(
+                update(VerificationToken)
+                .where(
+                    VerificationToken.user_id == user_id,
+                    VerificationToken.type == token_type,
+                    VerificationToken.used_at.is_(None),
+                )
+                .values(used_at=datetime.now(UTC))
+            ),
+        )
+        return natija.rowcount or 0

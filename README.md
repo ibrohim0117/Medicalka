@@ -24,7 +24,8 @@ tushishda migratsiyalarni o'zi qo'llaydi — qo'shimcha buyruq kerak emas.
 | http://localhost:8000/docs | Swagger UI — endpointlarni shu yerdan sinash mumkin |
 | http://localhost:8000/redoc | ReDoc |
 | http://localhost:8000/openapi.json | OpenAPI spetsifikatsiyasi |
-| http://localhost:8000/health | Tiriklik tekshiruvi |
+| http://localhost:8000/health | Tiriklik tekshiruvi (bazaga tegmaydi) |
+| http://localhost:8000/health/db | Bazaga ulanish tekshiruvi |
 
 `.env` da `JWT_SECRET` va `ADMIN_TOKEN` ni almashtiring:
 
@@ -89,6 +90,7 @@ Barchasi `.env.example` da izohlar bilan. Eng muhimlari:
 | `ACCESS_TOKEN_TTL_MINUTES` | 30 | |
 | `REFRESH_TOKEN_TTL_DAYS` | 14 | |
 | `EMAIL_VERIFY_TTL_HOURS` | 24 | Tasdiqlash havolasining umri |
+| `RESEND_VERIFICATION_COOLDOWN_SECONDS` | 120 | Havolani qayta so'rash orasidagi eng kam vaqt |
 | `UNVERIFIED_USER_TTL_HOURS` | 48 | Tasdiqlanmagan hisob shundan keyin o'chiriladi |
 | `POST_TTL_DAYS` | 0 | Postlar shu kundan eski bo'lsa o'chiriladi. `0` — o'chirilmaydi |
 | `LOGIN_RATE_LIMIT` | 10 | Bloklashgacha muvaffaqiyatsiz urinishlar. `0` — cheklov yo'q |
@@ -111,6 +113,7 @@ Barchasi `/api/v1` prefiksi bilan.
 | POST | `/auth/login` | ochiq |
 | POST | `/auth/refresh` | ochiq |
 | GET | `/auth/verify-email?token=...` | ochiq |
+| POST | `/auth/resend-verification` | token |
 | GET | `/auth/me` | token |
 
 ### Foydalanuvchilar
@@ -376,12 +379,32 @@ oladi, shuning uchun `alembic.ini` da `sqlalchemy.url` yozilmagan.
 
 | Vazifa | Jadval | Nima qiladi |
 |---|---|---|
-| `cleanup_unverified_users` | har kuni 03:00 | `is_verified=false` va `UNVERIFIED_USER_TTL_HOURS` dan eski hisoblar |
+| `cleanup_unverified_users` | har soat | `is_verified=false` va `UNVERIFIED_USER_TTL_HOURS` dan eski hisoblar |
 | `cleanup_expired_tokens` | har soat :30 | muddati o'tgan va ishlatilgan tasdiqlash tokenlari |
 | `cleanup_old_posts` | har kuni 04:00 | `POST_TTL_DAYS` dan eski postlar (`0` — o'chirilgan) |
 | `send_verification_email_task` | ro'yxatdan o'tishda | tasdiqlash xati, tarmoq xatosida 3 marta qayta urinadi |
 
 Uchalasini admin ruchkalari orqali qo'lda ham ishga tushirish mumkin.
+
+Tozalash vazifasi **har soat** ishlaydi. Kuniga bir marta bo'lganda hisobning
+haqiqiy umri 48 emas, 48–72 soat bo'lardi; endi 48–49 soat.
+
+## Tasdiqlash havolasini qayta so'rash
+
+Havola eskirsa yoki xat yetib bormasa, foydalanuvchi yangisini so'rashi mumkin:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/resend-verification \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Sovish davri: oxirgi so'rovdan `RESEND_VERIFICATION_COOLDOWN_SECONDS` (2 daqiqa)
+o'tmagan bo'lsa **429**. Yangi havola berilganda eskisi bekor qilinadi — bir
+vaqtda faqat bitta faol havola bo'ladi.
+
+Endpoint token talab qiladi. Tasdiqlanmagan foydalanuvchi login qila oladi,
+shuning uchun bu yetarli. Yon foyda: begona manzilga xat yuborib bo'lmaydi va
+hisob mavjudligi oshkor bo'lmaydi.
 
 ## Bruteforce himoyasi
 

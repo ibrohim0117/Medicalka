@@ -7,6 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models import User, VerificationToken
 from app.services.auth import AuthService
 
@@ -205,3 +206,146 @@ class TestServisDarajasida:
             assert exc.status_code == 400
         else:
             raise AssertionError("istisno kutilgan edi")
+
+
+class TestQaytaSoqrash:
+    """POST /auth/resend-verification — sovish davri bilan."""
+
+    @staticmethod
+    async def _headers(client: AsyncClient, user_data: dict[str, str]) -> dict[str, str]:
+        r = await client.post(
+            "/auth/login",
+            json={"login": user_data["email"], "password": user_data["password"]},
+        )
+        return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+    @staticmethod
+    async def _sovishni_oqtkaz(session: AsyncSession) -> None:
+        """Oxirgi tokenni sovish davridan oldinroq qilib qo'yadi."""
+        oldin = datetime.now(UTC) - timedelta(
+            seconds=settings.RESEND_VERIFICATION_COOLDOWN_SECONDS + 60
+        )
+        await session.execute(update(VerificationToken).values(created_at=oldin))
+
+    async def test_sovish_davri_ichida_rad_etiladi(
+        self, client: AsyncClient, registered: dict, user_data: dict[str, str]
+    ) -> None:
+        h = await self._headers(client, user_data)
+
+        r = await client.post("/auth/resend-verification", headers=h)
+
+        assert r.status_code == 429
+        assert r.json()["error"]["code"] == "resend_too_soon"
+
+    async def test_sovish_davridan_keyin_yangi_token(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        registered: dict,
+        user_data: dict[str, str],
+    ) -> None:
+        h = await self._headers(client, user_data)
+        await self._sovishni_oqtkaz(session)
+
+        r = await client.post("/auth/resend-verification", headers=h)
+
+        assert r.status_code == 200, r.text
+        assert r.json()["verification_token"] != registered["verification_token"]
+
+    async def test_eski_token_bekor_qilinadi(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        registered: dict,
+        user_data: dict[str, str],
+    ) -> None:
+        h = await self._headers(client, user_data)
+        await self._sovishni_oqtkaz(session)
+        await client.post("/auth/resend-verification", headers=h)
+
+        r = await client.get(f"/auth/verify-email?token={registered['verification_token']}")
+
+        assert r.status_code == 400
+        assert r.json()["error"]["code"] == "token_used"
+
+    async def test_yangi_token_ishlaydi(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        registered: dict,
+        user_data: dict[str, str],
+    ) -> None:
+        h = await self._headers(client, user_data)
+        await self._sovishni_oqtkaz(session)
+        yangi = (await client.post("/auth/resend-verification", headers=h)).json()
+
+        r = await client.get(f"/auth/verify-email?token={yangi['verification_token']}")
+
+        assert r.status_code == 200
+        assert r.json()["is_verified"] is True
+
+    async def test_muddati_oqtgan_tokendan_keyin(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        registered: dict,
+        user_data: dict[str, str],
+    ) -> None:
+        """Asosiy stsenariy: havola eskirdi, foydalanuvchi yangisini oladi."""
+        h = await self._headers(client, user_data)
+        await session.execute(
+            update(VerificationToken).values(
+                expires_at=datetime.now(UTC) - timedelta(hours=1),
+                created_at=datetime.now(UTC) - timedelta(hours=25),
+            )
+        )
+        eski = await client.get(f"/auth/verify-email?token={registered['verification_token']}")
+        assert eski.json()["error"]["code"] == "token_expired"
+
+        yangi = (await client.post("/auth/resend-verification", headers=h)).json()
+        r = await client.get(f"/auth/verify-email?token={yangi['verification_token']}")
+
+        assert r.status_code == 200
+        assert r.json()["is_verified"] is True
+
+    async def test_tasdiqlangandan_keyin(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        registered: dict,
+        user_data: dict[str, str],
+    ) -> None:
+        await client.get(f"/auth/verify-email?token={registered['verification_token']}")
+        h = await self._headers(client, user_data)
+        await self._sovishni_oqtkaz(session)
+
+        r = await client.post("/auth/resend-verification", headers=h)
+
+        assert r.status_code == 409
+        assert r.json()["error"]["code"] == "already_verified"
+
+    async def test_tokensiz(self, client: AsyncClient) -> None:
+        r = await client.post("/auth/resend-verification")
+
+        assert r.status_code == 401
+
+    async def test_faqat_bitta_faol_token_qoladi(
+        self,
+        client: AsyncClient,
+        session: AsyncSession,
+        registered: dict,
+        user_data: dict[str, str],
+    ) -> None:
+        h = await self._headers(client, user_data)
+        for _ in range(3):
+            await self._sovishni_oqtkaz(session)
+            await client.post("/auth/resend-verification", headers=h)
+
+        faol = (
+            await session.execute(
+                select(func.count())
+                .select_from(VerificationToken)
+                .where(VerificationToken.used_at.is_(None))
+            )
+        ).scalar_one()
+        assert faol == 1

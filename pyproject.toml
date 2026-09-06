@@ -94,6 +94,9 @@ markers = [
 
 [tool.coverage.run]
 source = ["app"]
+# SQLAlchemy async kodni greenlet ichida bajaradi; usiz coverage servis
+# qatlamidagi qatorlarni ko'rmaydi.
+concurrency = ["greenlet"]
 omit = ["app/worker/celery_app.py", "*/__init__.py"]
 
 [tool.coverage.report]

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def _redis() -> AsyncIterator[Redis]:
+async def redis_client() -> AsyncIterator[Redis]:
     client: Redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
     try:
         yield client
@@ -50,7 +50,7 @@ class LoginRateLimiter:
         if not self.yoqilgan:
             return False
         try:
-            async with _redis() as r:
+            async with redis_client() as r:
                 soni = await r.get(self._kalit(ip, login))
         except Exception as exc:
             logger.warning("Rate limit tekshirib bo'lmadi: %s", exc)
@@ -63,7 +63,7 @@ class LoginRateLimiter:
             return
         kalit = self._kalit(ip, login)
         try:
-            async with _redis() as r:
+            async with redis_client() as r:
                 soni = await r.incr(kalit)
                 if soni == 1:
                     # Birinchi urinish — oyna boshlanadi.
@@ -79,7 +79,7 @@ class LoginRateLimiter:
         if not self.yoqilgan:
             return
         try:
-            async with _redis() as r:
+            async with redis_client() as r:
                 await r.delete(self._kalit(ip, login))
         except Exception as exc:
             logger.warning("Rate limit hisoblagichi tozalanmadi: %s", exc)

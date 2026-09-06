@@ -9,11 +9,13 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
-from app.db.session import engine
+from app.db.session import AsyncSessionLocal, engine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -89,6 +91,28 @@ async def health() -> dict[str, str]:
     yozilgandan so'ng qo'shiladi.
     """
     return {"status": "ok", "version": VERSION}
+
+
+@app.get(
+    "/health/db",
+    tags=["service"],
+    summary="Bazaga ulanish tekshiruvi",
+    response_description="Baza javob bersa `ok`, aks holda 503",
+)
+async def health_db() -> JSONResponse:
+    """Bazaga ulanishni tekshiradi.
+
+    `/health` dan alohida: uni load balancer har necha soniyada so'raydi
+    va u tashqi xizmatlarga bog'liq bo'lmasligi kerak. Bu esa nosozlikni
+    tashxislash uchun — qo'lda yoki monitoring tomonidan so'raladi.
+    """
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.error("Bazaga ulanib bo'lmadi: %s", exc)
+        return JSONResponse(status_code=503, content={"status": "degraded", "database": "down"})
+    return JSONResponse(content={"status": "ok", "database": "up"})
 
 
 register_exception_handlers(app)

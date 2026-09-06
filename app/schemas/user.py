@@ -118,3 +118,11 @@ class RegisterResponse(BaseModel):
     # SMTP yo'q, shuning uchun tokenni javobda qaytaramiz. Ishlab
     # chiqarishda bu xavfli — u yerda `None` bo'ladi va emailga yuboriladi.
     verification_token: str | None = None
+
+
+class ResendResponse(BaseModel):
+    """POST /auth/resend-verification javobi."""
+
+    message: str = "Yangi tasdiqlash havolasi yuborildi"
+    # Register bilan bir xil: ishlab chiqarishda `None`.
+    verification_token: str | None = None

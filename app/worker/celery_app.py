@@ -42,10 +42,15 @@ celery_app.conf.update(
 )
 
 celery_app.conf.beat_schedule = {
-    # Tasdiqlanmagan hisoblar — kuniga bir marta, tunda.
+    # Tasdiqlanmagan hisoblar — HAR SOAT.
+    #
+    # Kuniga bir marta bo'lganda hisobning haqiqiy umri 48 emas, 48-72
+    # soat bo'lardi: 04:00 da ro'yxatdan o'tgan foydalanuvchi keyingi
+    # 03:00 larda hali 47 soatlik bo'lib, faqat undan keyingi kuni
+    # o'chirilardi. Soatiga bir marta ishlaganda aniqlik 48-49 soat.
     "cleanup-unverified-users": {
         "task": "app.worker.tasks.cleanup_unverified_users",
-        "schedule": crontab(hour=3, minute=0),
+        "schedule": crontab(minute=0),
     },
     # Eskirgan tokenlar — har soatda, arzon amal.
     "cleanup-expired-tokens": {

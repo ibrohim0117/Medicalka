@@ -304,3 +304,18 @@ class TestHimoyalanganEndpoint:
 
         assert r.status_code == 401
         assert r.json()["error"]["code"] == "user_not_found"
+
+
+class TestHealth:
+    async def test_health(self, client: AsyncClient) -> None:
+        r = await client.get("http://test/health")
+
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+
+    async def test_health_db(self, client: AsyncClient) -> None:
+        """Baza ishlab turganda `up` qaytadi."""
+        r = await client.get("http://test/health/db")
+
+        assert r.status_code == 200
+        assert r.json() == {"status": "ok", "database": "up"}

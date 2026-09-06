@@ -59,25 +59,36 @@ class AuthService:
             full_name=data.full_name,
             password_hash=hash_password(data.password),
         )
+        raw_token = await self._issue_verification_token(user)
+        # Ikkala yozuv bitta tranzaksiyada: tokensiz foydalanuvchi qolmasin.
+        await self.session.commit()
+
+        self._send_verification_email(user.email, raw_token)
+        return user, raw_token
+
+    async def _issue_verification_token(self, user: User) -> str:
+        """Yangi token yaratadi va ochiq qiymatini qaytaradi."""
         raw_token = generate_verification_token()
         await self.tokens.create(
             user_id=user.id,
             token_hash=hash_verification_token(raw_token),
             expires_at=datetime.now(UTC) + timedelta(hours=settings.EMAIL_VERIFY_TTL_HOURS),
         )
-        # Ikkala yozuv bitta tranzaksiyada: tokensiz foydalanuvchi qolmasin.
-        await self.session.commit()
+        return raw_token
 
-        # Xat navbatga qo'yiladi — SMTP javobini foydalanuvchi kutmaydi.
-        # Import shu yerda: modul darajasida bo'lsa aylanma import chiqadi
-        # (tasks -> services -> tasks).
+    @staticmethod
+    def _send_verification_email(email: str, raw_token: str) -> None:
+        """Xat navbatga qo'yiladi — SMTP javobini foydalanuvchi kutmaydi.
+
+        Import shu yerda: modul darajasida bo'lsa aylanma import chiqadi
+        (tasks -> services -> tasks).
+        """
         from app.worker.tasks import send_verification_email_task
 
         try:
-            send_verification_email_task.delay(user.email, raw_token)
+            send_verification_email_task.delay(email, raw_token)
         except Exception as exc:
             logger.warning("Tasdiqlash xati navbatga qo'yilmadi: %s", exc)
-        return user, raw_token
 
     async def login(self, data: UserLogin, ip: str = "unknown") -> tuple[str, str]:
         """Access va refresh tokenlarni qaytaradi.
@@ -105,6 +116,38 @@ class AuthService:
         assert user is not None
         await limiter.tozalash(ip, data.login)
         return self._issue_tokens(user)
+
+    async def resend_verification(self, user: User) -> str:
+        """Yangi tasdiqlash tokeni beradi va eskisini bekor qiladi.
+
+        Sovish davri: oxirgi tokendan
+        `RESEND_VERIFICATION_COOLDOWN_SECONDS` o'tmagan bo'lsa rad
+        etiladi. Busiz foydalanuvchi bir daqiqada o'nlab xat so'rab,
+        pochta xizmatining obro'sini tushirishi mumkin edi.
+        """
+        if user.is_verified:
+            raise ConflictError(
+                "Email manzilingiz allaqachon tasdiqlangan", code="already_verified"
+            )
+
+        oxirgi = await self.tokens.get_latest_for_user(user.id)
+        if oxirgi is not None:
+            sovish = timedelta(seconds=settings.RESEND_VERIFICATION_COOLDOWN_SECONDS)
+            oqtgan = datetime.now(UTC) - oxirgi.created_at
+            if oqtgan < sovish:
+                qoldi = int((sovish - oqtgan).total_seconds())
+                raise AppError(
+                    f"Yangi havolani {qoldi} soniyadan keyin so'rashingiz mumkin",
+                    code="resend_too_soon",
+                    status_code=429,
+                )
+
+        # Eskisi ishlamasin: bir vaqtda faqat bitta faol havola bo'lsin.
+        await self.tokens.invalidate_active(user.id)
+        raw_token = await self._issue_verification_token(user)
+        await self.session.commit()
+        self._send_verification_email(user.email, raw_token)
+        return raw_token
 
     async def refresh(self, raw_token: str) -> tuple[str, str]:
         """Refresh token evaziga yangi juftlik beradi.

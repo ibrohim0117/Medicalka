@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.schemas.user import (
     RefreshRequest,
     RegisterResponse,
+    ResendResponse,
     Token,
     UserCreate,
     UserLogin,
@@ -58,6 +59,27 @@ async def refresh(data: RefreshRequest, session: SessionDep) -> Token:
     """
     access, refresh_token = await AuthService(session).refresh(data.refresh_token)
     return Token(access_token=access, refresh_token=refresh_token)
+
+
+@router.post(
+    "/resend-verification",
+    response_model=ResendResponse,
+    summary="Tasdiqlash havolasini qayta so'rash",
+)
+async def resend_verification(user: CurrentUser, session: SessionDep) -> ResendResponse:
+    """Yangi tasdiqlash havolasi. Eskisi bekor qilinadi.
+
+    Token bilan himoyalangan: tasdiqlanmagan foydalanuvchi ham login
+    qila oladi, shuning uchun bu yetarli. Yon foyda — begona manzilga
+    xat yuborib bo'lmaydi va hisob mavjudligi oshkor bo'lmaydi.
+
+    Sovish davri: oxirgi so'rovdan
+    `RESEND_VERIFICATION_COOLDOWN_SECONDS` o'tmagan bo'lsa **429**.
+    """
+    raw_token = await AuthService(session).resend_verification(user)
+    return ResendResponse(
+        verification_token=None if settings.ENVIRONMENT == "production" else raw_token
+    )
 
 
 @router.get("/me", response_model=UserRead, summary="Joriy foydalanuvchi")

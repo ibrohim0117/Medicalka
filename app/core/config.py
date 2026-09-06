@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_TTL_DAYS: int = 14
     EMAIL_VERIFY_TTL_HOURS: int = 24
     PASSWORD_RESET_TTL_HOURS: int = 2
+    # Tasdiqlash xatini qayta so'rash orasidagi eng kam vaqt.
+    RESEND_VERIFICATION_COOLDOWN_SECONDS: int = 120
     # Tasdiqlanmagan hisob shu muddatdan keyin o'chiriladi.
     UNVERIFIED_USER_TTL_HOURS: int = 48
     # Postlarni avtomatik o'chirish. 0 — o'chirilmaydi.
@@ -44,6 +46,8 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/2"
     # Testlarda `True`: vazifa navbatsiz, o'sha yerda bajariladi.
     CELERY_TASK_ALWAYS_EAGER: bool = False
+    # Admin yuborgan vazifa ID'lari shu muddat davomida eslab qolinadi.
+    ADMIN_TASK_TTL_SECONDS: int = 3600
 
     # NoDecode: aks holda pydantic-settings "a,b" ni JSON deb ochishga urinadi.
     CORS_ORIGINS: Annotated[list[str], NoDecode] = []
