@@ -5,6 +5,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.comment import CommentRead
+
 TITLE_MIN, TITLE_MAX = 5, 255
 CONTENT_MAX = 10_000
 
@@ -66,3 +68,13 @@ class PostRead(BaseModel):
     content: str
     created_at: datetime
     updated_at: datetime
+
+
+class PostDetail(PostRead):
+    """GET /posts/{id} — post va uning izohlari.
+
+    `comments` to'ldirilishi uchun so'rovda `selectinload(Post.comments)`
+    bo'lishi shart: modellarda `lazy="raise"` turibdi.
+    """
+
+    comments: list[CommentRead] = []

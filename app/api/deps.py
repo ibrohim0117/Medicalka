@@ -8,7 +8,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AuthError
+from app.core.exceptions import AuthError, ForbiddenError
 from app.core.security import decode_token
 from app.db.session import get_session
 from app.models import User
@@ -53,7 +53,8 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 async def get_verified_user(user: CurrentUser) -> User:
     """Email tasdiqlangan bo'lishi shart bo'lgan endpoint'lar uchun."""
     if not user.is_verified:
-        raise AuthError("Avval email manzilingizni tasdiqlang", code="email_not_verified")
+        # 403, 401 emas: kim ekani ma'lum, qayta kirish yordam bermaydi.
+        raise ForbiddenError("Avval email manzilingizni tasdiqlang", code="email_not_verified")
     return user
 
 
