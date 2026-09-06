@@ -4,7 +4,14 @@ from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
-from app.schemas.user import RegisterResponse, Token, UserCreate, UserLogin, UserRead
+from app.schemas.user import (
+    RefreshRequest,
+    RegisterResponse,
+    Token,
+    UserCreate,
+    UserLogin,
+    UserRead,
+)
 from app.services.auth import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -37,7 +44,19 @@ async def login(data: UserLogin, session: SessionDep) -> Token:
     login va noto'g'ri parol bir xil xato beradi — qaysi hisob mavjudligi
     oshkor bo'lmasin.
     """
-    return Token(access_token=await AuthService(session).login(data))
+    access, refresh = await AuthService(session).login(data)
+    return Token(access_token=access, refresh_token=refresh)
+
+
+@router.post("/refresh", response_model=Token, summary="Tokenni yangilash")
+async def refresh(data: RefreshRequest, session: SessionDep) -> Token:
+    """Refresh token evaziga yangi access va refresh juftligi.
+
+    Access token qisqa umrli (30 daqiqa) — parolni qayta so'ramasdan
+    yangilash uchun shu endpoint ishlatiladi.
+    """
+    access, refresh_token = await AuthService(session).refresh(data.refresh_token)
+    return Token(access_token=access, refresh_token=refresh_token)
 
 
 @router.get("/me", response_model=UserRead, summary="Joriy foydalanuvchi")

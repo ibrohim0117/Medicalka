@@ -1,13 +1,17 @@
 """Autentifikatsiya biznes-mantig'i: ro'yxatdan o'tish, kirish, tasdiqlash."""
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import AuthError, ConflictError, InvalidTokenError
 from app.core.security import (
     create_access_token,
+    create_refresh_token,
+    decode_token,
     generate_verification_token,
     hash_password,
     hash_verification_token,
@@ -56,8 +60,11 @@ class AuthService:
         await self.session.commit()
         return user, raw_token
 
-    async def login(self, data: UserLogin) -> str:
-        """Access token qaytaradi. Email ham, username ham qabul qilinadi."""
+    async def login(self, data: UserLogin) -> tuple[str, str]:
+        """Access va refresh tokenlarni qaytaradi.
+
+        Email ham, username ham qabul qilinadi.
+        """
         user = (
             await self.users.get_by_email(data.login)
             if "@" in data.login
@@ -68,7 +75,32 @@ class AuthService:
             raise AuthError("Login yoki parol noto'g'ri", code="invalid_credentials")
         # `user` bu yerda albatta mavjud: soxta xesh hech qachon mos kelmaydi.
         assert user is not None
-        return create_access_token(str(user.id))
+        return self._issue_tokens(user)
+
+    async def refresh(self, raw_token: str) -> tuple[str, str]:
+        """Refresh token evaziga yangi juftlik beradi.
+
+        Eslatma: eski refresh token o'z muddati tugagunicha yaroqli
+        bo'lib qoladi — bekor qilingan tokenlar ro'yxati yo'q. To'liq
+        himoya uchun `jti` ni Redis'da saqlash kerak bo'lardi.
+        """
+        try:
+            payload = decode_token(raw_token, expected_type="refresh")
+            user_id = uuid.UUID(payload["sub"])
+        except (jwt.PyJWTError, ValueError) as exc:
+            raise AuthError(
+                "Refresh token yaroqsiz yoki muddati o'tgan",
+                code="invalid_refresh_token",
+            ) from exc
+
+        user = await self.users.get_by_id(user_id)
+        if user is None:
+            raise AuthError("Foydalanuvchi topilmadi", code="user_not_found")
+        return self._issue_tokens(user)
+
+    @staticmethod
+    def _issue_tokens(user: User) -> tuple[str, str]:
+        return create_access_token(str(user.id)), create_refresh_token(str(user.id))
 
     async def verify_email(self, raw_token: str) -> User:
         """Tokenni tekshiradi va foydalanuvchini tasdiqlangan deb belgilaydi."""

@@ -2,6 +2,7 @@
 
 import hashlib
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -44,6 +45,11 @@ def _create_token(subject: str, token_type: TokenType, ttl: timedelta) -> str:
     now = datetime.now(UTC)
     payload = {
         "sub": subject,
+        # Har bir token noyob bo'lsin. Usiz bir soniya ichida berilgan
+        # ikkita token bayt-baytga bir xil chiqadi — sessiyalarni
+        # ajratib bo'lmaydi va kelajakda bekor qilish ro'yxati tuzib
+        # bo'lmaydi.
+        "jti": uuid.uuid4().hex,
         # Tur talab qilinadi: refresh tokenni access o'rnida ishlatib
         # bo'lmasin, aks holda uzoq muddatli token qisqasini almashtiradi.
         "type": token_type,

@@ -98,10 +98,17 @@ class UserRead(BaseModel):
 
 
 class Token(BaseModel):
-    """POST /auth/login javobi."""
+    """POST /auth/login va POST /auth/refresh javobi."""
 
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    """POST /auth/refresh kirishi."""
+
+    refresh_token: str = Field(min_length=16)
 
 
 class RegisterResponse(BaseModel):
