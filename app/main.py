@@ -1,8 +1,4 @@
-"""FastAPI ilovasi — kirish nuqtasi.
-
-Hozircha bu yerda faqat xizmat endpoint'lari bor: `/` va `/health`.
-Qolgan qismlar tegishli modullar yozilgach ulanadi — pastdagi TODO'larga qarang.
-"""
+"""FastAPI ilovasi — kirish nuqtasi."""
 
 from __future__ import annotations
 
@@ -59,10 +55,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# TODO: settings = get_settings()  — app.core.config
-# TODO: CORSMiddleware ni ulash (settings.CORS_ORIGINS bo'sh bo'lmasa)
-# TODO: register_exception_handlers(app)  — app.core.exceptions
-# TODO: app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+# TODO: CORSMiddleware — frontend ulangach, settings.CORS_ORIGINS bo'yicha.
 
 
 @app.get(
