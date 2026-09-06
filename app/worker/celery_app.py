@@ -33,6 +33,12 @@ celery_app.conf.update(
     task_time_limit=300,
     result_expires=3600,
     broker_connection_retry_on_startup=True,
+    # Broker javob bermasa uzoq kutmasin — `.delay()` chaqiruvi HTTP
+    # so'rovni bloklab qo'ymasligi kerak.
+    broker_transport_options={"socket_timeout": 3, "socket_connect_timeout": 3},
+    broker_connection_max_retries=1,
+    task_always_eager=settings.CELERY_TASK_ALWAYS_EAGER,
+    task_eager_propagates=True,
 )
 
 celery_app.conf.beat_schedule = {
@@ -45,5 +51,10 @@ celery_app.conf.beat_schedule = {
     "cleanup-expired-tokens": {
         "task": "app.worker.tasks.cleanup_expired_tokens",
         "schedule": crontab(minute=30),
+    },
+    # Eski postlar — POST_TTL_DAYS=0 bo'lsa vazifa o'zi hech narsa qilmaydi.
+    "cleanup-old-posts": {
+        "task": "app.worker.tasks.cleanup_old_posts",
+        "schedule": crontab(hour=4, minute=0),
     },
 }

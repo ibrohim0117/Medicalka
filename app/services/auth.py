@@ -1,5 +1,6 @@
 """Autentifikatsiya biznes-mantig'i: ro'yxatdan o'tish, kirish, tasdiqlash."""
 
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -7,7 +8,13 @@ import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.exceptions import AuthError, ConflictError, InvalidTokenError
+from app.core.exceptions import (
+    AppError,
+    AuthError,
+    ConflictError,
+    InvalidTokenError,
+)
+from app.core.rate_limit import LoginRateLimiter
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -23,6 +30,8 @@ from app.schemas.user import UserCreate, UserLogin
 
 # Foydalanuvchi topilmaganda ham parol tekshiriladi — aks holda javob vaqti
 # hisobning mavjudligini oshkor qilardi (topilmasa tez, topilsa 33 ms).
+logger = logging.getLogger(__name__)
+
 _SOXTA_XESH = hash_password("mavjud-bo'lmagan-parol")
 
 
@@ -58,13 +67,31 @@ class AuthService:
         )
         # Ikkala yozuv bitta tranzaksiyada: tokensiz foydalanuvchi qolmasin.
         await self.session.commit()
+
+        # Xat navbatga qo'yiladi — SMTP javobini foydalanuvchi kutmaydi.
+        # Import shu yerda: modul darajasida bo'lsa aylanma import chiqadi
+        # (tasks -> services -> tasks).
+        from app.worker.tasks import send_verification_email_task
+
+        try:
+            send_verification_email_task.delay(user.email, raw_token)
+        except Exception as exc:
+            logger.warning("Tasdiqlash xati navbatga qo'yilmadi: %s", exc)
         return user, raw_token
 
-    async def login(self, data: UserLogin) -> tuple[str, str]:
+    async def login(self, data: UserLogin, ip: str = "unknown") -> tuple[str, str]:
         """Access va refresh tokenlarni qaytaradi.
 
         Email ham, username ham qabul qilinadi.
         """
+        limiter = LoginRateLimiter()
+        if await limiter.bloklanganmi(ip, data.login):
+            raise AppError(
+                "Juda ko'p urinish. Birozdan keyin qayta harakat qiling",
+                code="too_many_attempts",
+                status_code=429,
+            )
+
         user = (
             await self.users.get_by_email(data.login)
             if "@" in data.login
@@ -72,9 +99,11 @@ class AuthService:
         )
         # Foydalanuvchi topilmasa ham xeshlash bajariladi (vaqt bo'yicha hujum).
         if not verify_password(data.password, user.password_hash if user else _SOXTA_XESH):
+            await limiter.muvaffaqiyatsiz(ip, data.login)
             raise AuthError("Login yoki parol noto'g'ri", code="invalid_credentials")
         # `user` bu yerda albatta mavjud: soxta xesh hech qachon mos kelmaydi.
         assert user is not None
+        await limiter.tozalash(ip, data.login)
         return self._issue_tokens(user)
 
     async def refresh(self, raw_token: str) -> tuple[str, str]:

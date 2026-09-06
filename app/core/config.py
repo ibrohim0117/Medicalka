@@ -36,13 +36,32 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TTL_HOURS: int = 2
     # Tasdiqlanmagan hisob shu muddatdan keyin o'chiriladi.
     UNVERIFIED_USER_TTL_HOURS: int = 48
+    # Postlarni avtomatik o'chirish. 0 — o'chirilmaydi.
+    POST_TTL_DAYS: int = 0
 
     REDIS_URL: str = "redis://redis:6379/0"
     CELERY_BROKER_URL: str = "redis://redis:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/2"
+    # Testlarda `True`: vazifa navbatsiz, o'sha yerda bajariladi.
+    CELERY_TASK_ALWAYS_EAGER: bool = False
 
     # NoDecode: aks holda pydantic-settings "a,b" ni JSON deb ochishga urinadi.
     CORS_ORIGINS: Annotated[list[str], NoDecode] = []
+
+    # SMTP. SMTP_HOST bo'sh bo'lsa xat yuborilmaydi, faqat logga yoziladi.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "noreply@medicalka.uz"
+    SMTP_STARTTLS: bool = True
+    # Xatdagi havola shu manzildan quriladi.
+    PUBLIC_BASE_URL: str = "http://localhost:8000"
+
+    # Login'ga hujumdan himoya. 0 — cheklov o'chirilgan.
+    LOGIN_RATE_LIMIT: int = 10
+    LOGIN_RATE_WINDOW_SECONDS: int = 300
+    LOGIN_LOCKOUT_SECONDS: int = 900
 
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100

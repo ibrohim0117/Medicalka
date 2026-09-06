@@ -90,6 +90,9 @@ Barchasi `.env.example` da izohlar bilan. Eng muhimlari:
 | `REFRESH_TOKEN_TTL_DAYS` | 14 | |
 | `EMAIL_VERIFY_TTL_HOURS` | 24 | Tasdiqlash havolasining umri |
 | `UNVERIFIED_USER_TTL_HOURS` | 48 | Tasdiqlanmagan hisob shundan keyin o'chiriladi |
+| `POST_TTL_DAYS` | 0 | Postlar shu kundan eski bo'lsa o'chiriladi. `0` — o'chirilmaydi |
+| `LOGIN_RATE_LIMIT` | 10 | Bloklashgacha muvaffaqiyatsiz urinishlar. `0` — cheklov yo'q |
+| `SMTP_HOST` | (bo'sh) | Bo'sh bo'lsa xat yuborilmaydi, havola logga yoziladi |
 | `DEFAULT_PAGE_SIZE` / `MAX_PAGE_SIZE` | 20 / 100 | |
 | `DB_ECHO` | false | `true` — SQL so'rovlar logga chiqadi |
 
@@ -145,6 +148,7 @@ Barchasi `/api/v1` prefiksi bilan.
 | GET | `/all` | ochiq |
 | POST | `/admin/cleanup/unverified-users` | `X-Admin-Token` |
 | POST | `/admin/cleanup/expired-tokens` | `X-Admin-Token` |
+| POST | `/admin/cleanup/old-posts` | `X-Admin-Token` |
 | GET | `/admin/tasks/{task_id}` | `X-Admin-Token` |
 
 ## So'rov misollari
@@ -368,8 +372,30 @@ docker compose exec api alembic current
 Alembic async engine bilan ishlaydi va `DATABASE_URL` ni `app.core.config` dan
 oladi, shuning uchun `alembic.ini` da `sqlalchemy.url` yozilmagan.
 
+## Fon vazifalari
+
+| Vazifa | Jadval | Nima qiladi |
+|---|---|---|
+| `cleanup_unverified_users` | har kuni 03:00 | `is_verified=false` va `UNVERIFIED_USER_TTL_HOURS` dan eski hisoblar |
+| `cleanup_expired_tokens` | har soat :30 | muddati o'tgan va ishlatilgan tasdiqlash tokenlari |
+| `cleanup_old_posts` | har kuni 04:00 | `POST_TTL_DAYS` dan eski postlar (`0` — o'chirilgan) |
+| `send_verification_email_task` | ro'yxatdan o'tishda | tasdiqlash xati, tarmoq xatosida 3 marta qayta urinadi |
+
+Uchalasini admin ruchkalari orqali qo'lda ham ishga tushirish mumkin.
+
+## Bruteforce himoyasi
+
+`LOGIN_RATE_WINDOW_SECONDS` (5 daqiqa) ichida `LOGIN_RATE_LIMIT` (10) ta
+muvaffaqiyatsiz urinishdan keyin `LOGIN_LOCKOUT_SECONDS` (15 daqiqa) ga
+bloklanadi va **429** qaytadi. Hisoblagich Redis'da, kalit — IP va login
+juftligi: faqat IP bo'lsa umumiy NAT ortidagilar bir-birini bloklardi, faqat
+login bo'lsa hujumchi begona hisobni ataylab bloklab qo'yardi.
+
+Muvaffaqiyatli kirish hisoblagichni nolga tushiradi. Redis ishlamay qolsa
+cheklov jimgina o'chadi — himoya vositasi asosiy xizmatni to'xtatmasligi kerak.
+
 ## Nima qilinmagan
 
-- Haqiqiy SMTP — tasdiqlash tokeni javobda qaytadi
-- Login'da rate limiting
 - Refresh tokenlarni bekor qilish ro'yxati (`jti` bor, denylist yo'q)
+- Nginx / reverse proxy sozlamalari
+- Ishlab chiqarish uchun log yig'ish va monitoring

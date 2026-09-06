@@ -21,6 +21,8 @@ os.environ.setdefault("JWT_SECRET", "test-jwt-secret-kamida-o-ttiz-ikki-belgi-bo
 os.environ.setdefault("ADMIN_TOKEN", "test-admin-token-16+")
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("DEBUG", "false")
+# Vazifalar broker'siz, o'sha yerda bajariladi — testlar Redis talab qilmaydi.
+os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
 
 from collections.abc import AsyncGenerator, Generator  # noqa: E402
 

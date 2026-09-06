@@ -10,7 +10,11 @@ from fastapi import APIRouter, Query, status
 from app.api.deps import AdminOnly
 from app.schemas.admin import TaskAccepted, TaskStatus
 from app.worker.celery_app import celery_app
-from app.worker.tasks import cleanup_expired_tokens, cleanup_unverified_users
+from app.worker.tasks import (
+    cleanup_expired_tokens,
+    cleanup_old_posts,
+    cleanup_unverified_users,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[AdminOnly])
 
@@ -45,6 +49,22 @@ async def run_cleanup_unverified_users(
 async def run_cleanup_expired_tokens() -> TaskAccepted:
     natija = cleanup_expired_tokens.delay()
     return TaskAccepted(task_id=natija.id, task=cleanup_expired_tokens.name)
+
+
+@router.post(
+    "/cleanup/old-posts",
+    response_model=TaskAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Eski postlarni tozalash",
+)
+async def run_cleanup_old_posts(
+    older_than_days: int | None = Query(
+        None, ge=1, description="Berilmasa POST_TTL_DAYS ishlatiladi"
+    ),
+) -> TaskAccepted:
+    """`POST_TTL_DAYS=0` bo'lsa vazifa hech narsa o'chirmaydi."""
+    natija = cleanup_old_posts.delay(older_than_days=older_than_days)
+    return TaskAccepted(task_id=natija.id, task=cleanup_old_posts.name)
 
 
 @router.get(

@@ -1,6 +1,6 @@
 """`/auth` endpoint'lari."""
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, status
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
@@ -37,14 +37,15 @@ async def register(data: UserCreate, session: SessionDep) -> RegisterResponse:
 
 
 @router.post("/login", response_model=Token, summary="Tizimga kirish")
-async def login(data: UserLogin, session: SessionDep) -> Token:
+async def login(data: UserLogin, session: SessionDep, request: Request) -> Token:
     """Access token qaytaradi.
 
     `login` maydoniga email ham, username ham yozish mumkin. Noto'g'ri
     login va noto'g'ri parol bir xil xato beradi — qaysi hisob mavjudligi
     oshkor bo'lmasin.
     """
-    access, refresh = await AuthService(session).login(data)
+    ip = request.client.host if request.client else "unknown"
+    access, refresh = await AuthService(session).login(data, ip=ip)
     return Token(access_token=access, refresh_token=refresh)
 
 
