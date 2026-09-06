@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_TTL_DAYS: int = 14
     EMAIL_VERIFY_TTL_HOURS: int = 24
     PASSWORD_RESET_TTL_HOURS: int = 2
+    # Tasdiqlanmagan hisob shu muddatdan keyin o'chiriladi.
+    UNVERIFIED_USER_TTL_HOURS: int = 48
 
     REDIS_URL: str = "redis://redis:6379/0"
     CELERY_BROKER_URL: str = "redis://redis:6379/1"

@@ -128,6 +128,12 @@ services:
       - --schedule=/var/lib/celery/celerybeat-schedule
     volumes:
       - beatdata:/var/lib/celery
+    # Tasvirdagi HEALTHCHECK /health ni so'raydi, lekin beat'da web server
+    # yo'q — u har doim unhealthy bo'lib turardi. Beat'ning ping interfeysi
+    # ham yo'q, shuning uchun tekshiruv o'chiriladi: jarayon o'lsa
+    # `restart: unless-stopped` uni qayta ko'taradi.
+    healthcheck:
+      disable: true
 
 volumes:
   pgdata:
