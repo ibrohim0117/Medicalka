@@ -135,6 +135,23 @@ services:
     healthcheck:
       disable: true
 
+  # Testlar
+  # Standart `up` da ko'tarilmaydi — `profiles` shuni ta'minlaydi.
+  # Ishlatish: docker compose run --rm tests
+  tests:
+    build:
+      context: .
+      target: dev
+    profiles: ["test"]
+    env_file: .env
+    environment:
+      <<: *app-env
+      # Testlar alohida bazada ishlaydi, asosiysiga tegmaydi.
+      TEST_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-medicalka}:${POSTGRES_PASSWORD:-medicalka}@db:5432/medicalka_test
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:
   redisdata:

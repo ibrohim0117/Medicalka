@@ -88,3 +88,32 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD ["python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# 3. DEV — testlar va linterlar uchun
+# Runtime tasvir toza qoladi: dev bog'liqliklar faqat shu bosqichda.
+# Ishlatish: docker compose run --rm tests
+FROM runtime AS dev
+
+USER root
+
+# `[project.optional-dependencies].dev` ni pyproject.toml dan ajratib olamiz.
+COPY pyproject.toml README.md ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -c "\
+import tomllib, pathlib;\
+deps = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['optional-dependencies']['dev'];\
+pathlib.Path('/tmp/dev-requirements.txt').write_text('\n'.join(deps))" \
+ && pip install -r /tmp/dev-requirements.txt
+
+COPY --chown=appuser:appuser tests ./tests
+COPY --chown=appuser:appuser app ./app
+
+# pytest ish katalogiga kesh yozadi, katalog esa root'niki edi.
+RUN chown appuser:appuser /srv/app
+
+USER appuser
+
+# Testlar web server ko'tarmaydi — tasvirdagi HEALTHCHECK bu yerda o'chiriladi.
+HEALTHCHECK NONE
+
+CMD ["pytest", "-v"]

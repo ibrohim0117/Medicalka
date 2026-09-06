@@ -41,10 +41,8 @@ secrets
 *.db
 
 # Test / lint
-# Testlar runtime tasvirga kerak emas. Agar CI'da konteyner ichida
-# `pytest` ishlatmoqchi bo'lsangiz, `tests` va `.dockerignore` dan
-# ushbu ikki satrni olib tashlang.
-tests
+# `tests` bu yerda YO'Q: u `dev` bosqichiga kerak. Runtime tasvirga
+# baribir tushmaydi, chunki `runtime` bosqichi uni COPY qilmaydi.
 .pytest_cache
 .ruff_cache
 .mypy_cache
