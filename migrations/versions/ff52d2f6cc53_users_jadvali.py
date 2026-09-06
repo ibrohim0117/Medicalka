@@ -1,7 +1,7 @@
 """users jadvali
 
 Revision ID: ff52d2f6cc53
-Revises: 
+Revises:
 Create Date: 2026-09-05 23:17:17.829487
 """
 from collections.abc import Sequence

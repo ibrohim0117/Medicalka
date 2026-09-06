@@ -54,6 +54,28 @@ docker compose up -d db
 pytest
 ```
 
+### pre-commit
+
+```bash
+pip install -e ".[dev]"
+pre-commit install          # har commitda avtomatik ishlaydi
+pre-commit run --all-files  # hammasini qo'lda tekshirish
+```
+
+Hooklar: ortiqcha bo'shliq, fayl oxiri, YAML/TOML sintaksisi, katta
+fayllar, merge konflikt izlari, maxfiy kalitlar, `ruff` (`--fix` bilan),
+`ruff format` va `mypy`.
+
+### CI
+
+`.github/workflows/ci.yml` uchta ishni bajaradi:
+
+| Ish | Nima |
+|---|---|
+| `lint` | `ruff check`, `ruff format --check`, `mypy app` |
+| `test` | Postgres xizmati ko'tariladi, `pytest -v` |
+| `docker` | `runtime` va `dev` tasvirlari yig'iladi (kesh bilan) |
+
 ## Muhit o'zgaruvchilari
 
 Barchasi `.env.example` da izohlar bilan. Eng muhimlari:
@@ -351,4 +373,3 @@ oladi, shuning uchun `alembic.ini` da `sqlalchemy.url` yozilmagan.
 - Haqiqiy SMTP — tasdiqlash tokeni javobda qaytadi
 - Login'da rate limiting
 - Refresh tokenlarni bekor qilish ro'yxati (`jti` bor, denylist yo'q)
-- CI (GitHub Actions) va pre-commit
