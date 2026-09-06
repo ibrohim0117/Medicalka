@@ -1,6 +1,6 @@
 """`/auth` endpoint'lari."""
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
@@ -44,3 +44,17 @@ async def login(data: UserLogin, session: SessionDep) -> Token:
 async def me(user: CurrentUser) -> UserRead:
     """`Authorization: Bearer <token>` sarlavhasidagi tokenga tegishli hisob."""
     return UserRead.model_validate(user)
+
+
+@router.get("/verify-email", response_model=UserRead, summary="Emailni tasdiqlash")
+async def verify_email(
+    session: SessionDep,
+    token: str = Query(min_length=16, max_length=256, description="Emaildagi token"),
+) -> UserRead:
+    """Tasdiqlash havolasi.
+
+    Token topilmasa, allaqachon ishlatilgan bo'lsa yoki muddati o'tgan
+    bo'lsa 400 qaytadi — uchalasi uchun alohida `code`. Muvaffaqiyatli
+    bo'lsa `is_verified` `true` ga o'tadi.
+    """
+    return UserRead.model_validate(await AuthService(session).verify_email(token))
