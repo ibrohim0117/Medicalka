@@ -9,7 +9,7 @@ from app.core.exceptions import ForbiddenError, NotFoundError
 from app.models import Post, User
 from app.repositories.post import PostRepository
 from app.schemas.common import PaginationParams
-from app.schemas.post import PostCreate, PostUpdate
+from app.schemas.post import PostCreate, PostFilters, PostUpdate
 
 
 class PostService:
@@ -31,10 +31,14 @@ class PostService:
         return post
 
     async def list_posts(
-        self, params: PaginationParams, *, search: str | None = None
+        self, params: PaginationParams, filters: PostFilters
     ) -> tuple[Sequence[Post], int]:
         return await self.posts.list_posts(
-            offset=params.offset, limit=params.page_size, search=search
+            offset=params.offset,
+            limit=params.page_size,
+            search=filters.search,
+            date_from=filters.date_from,
+            date_to=filters.date_to,
         )
 
     async def create(self, user: User, data: PostCreate) -> Post:

@@ -1,9 +1,19 @@
 """Post sxemalari."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from fastapi import Depends, Query
+from fastapi.exceptions import RequestValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from app.schemas.comment import CommentRead
 
@@ -78,3 +88,55 @@ class PostDetail(PostRead):
     """
 
     comments: list[CommentRead] = []
+
+
+class PostFilters(BaseModel):
+    """`GET /posts` filtrlari — qidiruv va sana oralig'i."""
+
+    search: str | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+
+    @field_validator("date_from", "date_to", mode="after")
+    @classmethod
+    def to_utc(cls, value: datetime | None) -> datetime | None:
+        """Zonasiz sana UTC deb qabul qilinadi.
+
+        `created_at` ustuni `timestamptz`. Zonasiz qiymat solishtirilsa,
+        Postgres uni server zonasida talqin qiladi va natija server
+        sozlamasiga bog'liq bo'lib qolardi.
+        """
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
+
+    @model_validator(mode="after")
+    def check_range(self) -> "PostFilters":
+        if self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError("date_from date_to dan keyin bo'lishi mumkin emas")
+        return self
+
+
+def post_filters(
+    search: str | None = Query(
+        None,
+        min_length=1,
+        max_length=255,
+        description="title yoki content ichidan qidiradi (registrga sezgir emas)",
+    ),
+    date_from: datetime | None = Query(
+        None, description="ISO 8601: 2026-09-06 yoki 2026-09-06T14:30:00Z"
+    ),
+    date_to: datetime | None = Query(
+        None, description="ISO 8601. Shu lahzagacha, ya'ni 2026-09-06 = yarim tun"
+    ),
+) -> PostFilters:
+    try:
+        return PostFilters(search=search, date_from=date_from, date_to=date_to)
+    except ValidationError as exc:
+        # Dependency ichida tashlangan ValidationError'ni FastAPI o'zi
+        # 422 ga aylantirmaydi — u ushlanmagan istisno bo'lib 500 berardi.
+        raise RequestValidationError(exc.errors()) from exc
+
+
+PostFiltersDep = Annotated[PostFilters, Depends(post_filters)]

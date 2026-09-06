@@ -2,6 +2,7 @@
 
 import uuid
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +42,13 @@ class PostRepository:
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def list_posts(
-        self, *, offset: int, limit: int, search: str | None = None
+        self,
+        *,
+        offset: int,
+        limit: int,
+        search: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
     ) -> tuple[Sequence[Post], int]:
         """Sahifalangan ro'yxat va jami soni.
 
@@ -61,6 +68,11 @@ class PostRepository:
                     Post.content.ilike(naqsh, escape="\\"),
                 )
             )
+        # Ikki chegara ham kiritilgan: >= va <=.
+        if date_from is not None:
+            shartlar.append(Post.created_at >= date_from)
+        if date_to is not None:
+            shartlar.append(Post.created_at <= date_to)
 
         total = (
             await self.session.scalar(select(func.count()).select_from(Post).where(*shartlar)) or 0
