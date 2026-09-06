@@ -102,3 +102,12 @@ class Token(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+class RegisterResponse(BaseModel):
+    """POST /auth/register javobi."""
+
+    user: UserRead
+    # SMTP yo'q, shuning uchun tokenni javobda qaytaramiz. Ishlab
+    # chiqarishda bu xavfli — u yerda `None` bo'ladi va emailga yuboriladi.
+    verification_token: str | None = None

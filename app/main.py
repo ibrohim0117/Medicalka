@@ -12,8 +12,13 @@ from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
+from app.api.v1.router import api_router
+from app.core.config import settings
+from app.core.exceptions import AppError
 from app.db.session import engine
 
 logging.basicConfig(
@@ -93,3 +98,38 @@ async def health() -> dict[str, str]:
     yozilgandan so'ng qo'shiladi.
     """
     return {"status": "ok", "version": VERSION}
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
+    """Biznes xatolarini HTTP javobga aylantiradi.
+
+    Busiz servis tashlagan ConflictError ushlanmagan istisno bo'lib
+    500 qaytarardi.
+    """
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.code, "message": exc.message}},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    """Pydantic xatolarini ham shu shaklga keltiradi: {"error": {...}}."""
+    details = [
+        {"field": ".".join(str(p) for p in err["loc"][1:]), "message": err["msg"]}
+        for err in exc.errors()
+    ]
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": {
+                "code": "validation_error",
+                "message": "Kiritilgan ma'lumotlar noto'g'ri",
+                "details": details,
+            }
+        },
+    )
+
+
+app.include_router(api_router, prefix=settings.API_V1_PREFIX)
