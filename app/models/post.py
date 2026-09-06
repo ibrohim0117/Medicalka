@@ -1,11 +1,17 @@
 """Post (e'lon) modeli."""
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Index, String, Uuid, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.comment import Comment
+    from app.models.like import Like
+    from app.models.user import User
 
 
 class Post(Base, TimestampMixin):
@@ -30,3 +36,17 @@ class Post(Base, TimestampMixin):
     # Quyi chegara (title 5 belgi) Pydantic sxemasida tekshiriladi.
     title: Mapped[str] = mapped_column(String(255))
     content: Mapped[str] = mapped_column(String(10_000))
+
+    author: Mapped["User"] = relationship(back_populates="posts", lazy="raise")
+    comments: Mapped[list["Comment"]] = relationship(
+        back_populates="post",
+        lazy="raise",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    likes: Mapped[list["Like"]] = relationship(
+        back_populates="post",
+        lazy="raise",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

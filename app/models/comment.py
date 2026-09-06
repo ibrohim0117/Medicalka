@@ -2,11 +2,16 @@
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Uuid, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.post import Post
+    from app.models.user import User
 
 
 class Comment(Base):
@@ -35,3 +40,6 @@ class Comment(Base):
     # TimestampMixin ishlatilmadi — topshiriqda izoh uchun faqat created_at
     # so'ralgan, updated_at yo'q.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    post: Mapped["Post"] = relationship(back_populates="comments", lazy="raise")
+    author: Mapped["User"] = relationship(back_populates="comments", lazy="raise")

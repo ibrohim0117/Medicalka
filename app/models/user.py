@@ -1,11 +1,18 @@
 """Foydalanuvchi modeli."""
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, String, Uuid, false, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.comment import Comment
+    from app.models.like import Like
+    from app.models.post import Post
+    from app.models.verification import VerificationToken
 
 
 class User(Base, TimestampMixin):
@@ -30,3 +37,31 @@ class User(Base, TimestampMixin):
     password_hash: Mapped[str] = mapped_column(String(255))
 
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+
+    # lazy="raise" — bog'lanishga oldindan yuklamasdan murojaat qilinsa
+    # xato tashlaydi. passive_deletes=True — o'chirishni bazaning
+    # ON DELETE CASCADE'iga qoldiradi, SQLAlchemy bolalarni yuklamaydi.
+    posts: Mapped[list["Post"]] = relationship(
+        back_populates="author",
+        lazy="raise",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    comments: Mapped[list["Comment"]] = relationship(
+        back_populates="author",
+        lazy="raise",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    likes: Mapped[list["Like"]] = relationship(
+        back_populates="user",
+        lazy="raise",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    verification_tokens: Mapped[list["VerificationToken"]] = relationship(
+        back_populates="user",
+        lazy="raise",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
