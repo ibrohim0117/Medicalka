@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 20
 
     JWT_SECRET: str = Field(min_length=32)
+    # Admin ruchkalari uchun umumiy sir. To'liq admin autentifikatsiyasi
+    # o'rniga — texnik tugma, X-Admin-Token sarlavhasida yuboriladi.
+    ADMIN_TOKEN: str = Field(min_length=16)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_TTL_MINUTES: int = 30
     REFRESH_TOKEN_TTL_DAYS: int = 14

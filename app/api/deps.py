@@ -1,13 +1,15 @@
 """FastAPI dependency'lari — endpoint'lar shu yerdan sessiya va foydalanuvchi oladi."""
 
+import secrets
 import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import AuthError, ForbiddenError
 from app.core.security import decode_token
 from app.db.session import get_session
@@ -59,3 +61,21 @@ async def get_verified_user(user: CurrentUser) -> User:
 
 
 VerifiedUser = Annotated[User, Depends(get_verified_user)]
+
+
+async def require_admin_token(
+    x_admin_token: Annotated[str | None, Header(description="Admin siri")] = None,
+) -> None:
+    """Admin ruchkalari uchun umumiy sir bilan himoya.
+
+    To'liq admin autentifikatsiyasi emas — texnik tugma. `compare_digest`
+    ishlatiladi: oddiy `==` birinchi farqli belgida to'xtaydi va javob
+    vaqti orqali sirni belgi-belgi topish mumkin bo'lardi.
+    """
+    if x_admin_token is None:
+        raise AuthError("X-Admin-Token sarlavhasi kerak", code="admin_token_required")
+    if not secrets.compare_digest(x_admin_token, settings.ADMIN_TOKEN):
+        raise ForbiddenError("Admin token noto'g'ri", code="invalid_admin_token")
+
+
+AdminOnly = Depends(require_admin_token)
