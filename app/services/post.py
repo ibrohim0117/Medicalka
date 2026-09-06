@@ -30,8 +30,12 @@ class PostService:
             raise NotFoundError("Post topilmadi")
         return post
 
-    async def list_posts(self, params: PaginationParams) -> tuple[Sequence[Post], int]:
-        return await self.posts.list_posts(offset=params.offset, limit=params.page_size)
+    async def list_posts(
+        self, params: PaginationParams, *, search: str | None = None
+    ) -> tuple[Sequence[Post], int]:
+        return await self.posts.list_posts(
+            offset=params.offset, limit=params.page_size, search=search
+        )
 
     async def create(self, user: User, data: PostCreate) -> Post:
         post = await self.posts.create(author_id=user.id, title=data.title, content=data.content)

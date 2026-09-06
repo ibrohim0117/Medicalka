@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Query, Response, status
 
 from app.api.deps import SessionDep, VerifiedUser
 from app.schemas.comment import CommentRead
@@ -14,9 +14,18 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 
 
 @router.get("", response_model=Page[PostRead], summary="Postlar ro'yxati")
-async def list_posts(session: SessionDep, params: PaginationDep) -> Page[PostRead]:
+async def list_posts(
+    session: SessionDep,
+    params: PaginationDep,
+    search: str | None = Query(
+        None,
+        min_length=1,
+        max_length=255,
+        description="title yoki content ichidan qidiradi (registrga sezgir emas)",
+    ),
+) -> Page[PostRead]:
     """Barcha postlar, yangisidan boshlab. Avtorizatsiya talab qilinmaydi."""
-    posts, total = await PostService(session).list_posts(params)
+    posts, total = await PostService(session).list_posts(params, search=search)
     return Page.create([PostRead.model_validate(p) for p in posts], total, params)
 
 

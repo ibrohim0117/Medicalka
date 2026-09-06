@@ -3,11 +3,24 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import Post
+
+
+def _like_naqsh(matn: str) -> str:
+    """Foydalanuvchi kiritgan matnni LIKE naqshiga aylantiradi.
+
+    `%` va `_` — LIKE ning maxsus belgilari. Ularni qochirmasak, "50%"
+    deb qidirilganda hamma narsa topilardi, "a_b" esa "axb" ni ham
+    topardi. `\\` birinchi almashtiriladi, aks holda o'zi qo'shgan
+    qochirish belgilarini qayta qochirardik.
+    """
+    for belgi in ("\\", "%", "_"):
+        matn = matn.replace(belgi, f"\\{belgi}")
+    return f"%{matn}%"
 
 
 class PostRepository:
@@ -27,15 +40,34 @@ class PostRepository:
         stmt = select(Post).options(selectinload(Post.comments)).where(Post.id == post_id)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
-    async def list_posts(self, *, offset: int, limit: int) -> tuple[Sequence[Post], int]:
+    async def list_posts(
+        self, *, offset: int, limit: int, search: str | None = None
+    ) -> tuple[Sequence[Post], int]:
         """Sahifalangan ro'yxat va jami soni.
 
         Ikkita so'rov: bittasi qatorlar, bittasi COUNT. Bu N+1 emas —
         so'rovlar soni sahifadagi elementlarga bog'liq emas.
+
+        Shartlar bir marta tuziladi va IKKALA so'rovga ham qo'llanadi:
+        aks holda `total` filtrlanmagan songa teng bo'lib qolardi.
         """
-        total = await self.session.scalar(select(func.count()).select_from(Post)) or 0
+        shartlar: list[ColumnElement[bool]] = []
+        if search and search.strip():
+            naqsh = _like_naqsh(search.strip())
+            # ILIKE — registrga sezgir emas: "Yurak" so'rovi "yurak" ni ham topadi.
+            shartlar.append(
+                or_(
+                    Post.title.ilike(naqsh, escape="\\"),
+                    Post.content.ilike(naqsh, escape="\\"),
+                )
+            )
+
+        total = (
+            await self.session.scalar(select(func.count()).select_from(Post).where(*shartlar)) or 0
+        )
         stmt = (
             select(Post)
+            .where(*shartlar)
             # `id` ikkinchi mezon: bir xil vaqtli postlar tartibi barqaror
             # bo'lsin, aks holda sahifalar orasida element takrorlanishi mumkin.
             .order_by(Post.created_at.desc(), Post.id.desc())
