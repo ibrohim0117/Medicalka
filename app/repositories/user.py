@@ -1,11 +1,43 @@
-"""Foydalanuvchi so'rovlari — faqat SQL/ORM, biznes-mantiq yo'q.
+"""Foydalanuvchi jadvaliga SQL so'rovlari. Biznes qoidalari bu yerda yo'q."""
 
-Bu yerda nima bo'ladi:
-    * `UserRepository`: get, get_by_email, get_by_username,
-      get_by_identifier (login uchun), email_exists, username_exists,
-      list_users (qidiruv + paginatsiya), touch_last_login
-    * `VerificationTokenRepository`: get_by_hash, invalidate_active, mark_used
-"""
+import uuid
 
-# TODO: from sqlalchemy import select
-# TODO: from app.models.user import User
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import User
+
+
+class UserRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_by_id(self, user_id: uuid.UUID) -> User | None:
+        return await self.session.get(User, user_id)
+
+    async def get_by_email(self, email: str) -> User | None:
+        stmt = select(User).where(User.email == email)
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def get_by_username(self, username: str) -> User | None:
+        stmt = select(User).where(User.username == username)
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def create(
+        self, *, email: str, username: str, full_name: str, password_hash: str
+    ) -> User:
+        """Foydalanuvchi yaratadi va ID olish uchun flush qiladi.
+
+        Commit qilmaydi — buni servis qatlami hal qiladi, chunki bitta
+        amalda bir nechta yozuv bo'lishi mumkin (foydalanuvchi + tasdiqlash
+        tokeni) va ular bitta tranzaksiyada ketishi kerak.
+        """
+        user = User(
+            email=email,
+            username=username,
+            full_name=full_name,
+            password_hash=password_hash,
+        )
+        self.session.add(user)
+        await self.session.flush()
+        return user
