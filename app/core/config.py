@@ -7,8 +7,18 @@ xato bo'lsa, ilova ishga tushishdayoq to'xtaydi.
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+# .env.example bilan birga keladigan qiymatlar. Ular 32/16 belgilik
+# chegaradan o'tadi, shuning uchun uzunlik tekshiruvi ularni ushlamaydi —
+# production uchun alohida rad etiladi.
+PLACEHOLDER_SECRETS = frozenset(
+    {
+        "dev-uchun-vaqtinchalik-kalit-almashtiring",
+        "change-me-admin-token-min-16-belgi",
+    }
+)
 
 
 class Settings(BaseSettings):
@@ -76,6 +86,29 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [v.strip() for v in value.split(",") if v.strip()]
         return value
+
+    @model_validator(mode="after")
+    def namunaviy_sirlarni_rad_etish(self) -> "Settings":
+        """Production'da .env.example dagi qiymatlar bilan ishga tushmaydi.
+
+        Namunaviy qiymatlar uzunlik chegarasidan o'tadi (aks holda yangi
+        klon `cp .env.example .env` dan keyin ko'tarilmasdi), shuning uchun
+        ularni alohida ushlash kerak.
+        """
+        if self.ENVIRONMENT != "production":
+            return self
+        band = [
+            nom
+            for nom in ("JWT_SECRET", "ADMIN_TOKEN")
+            if getattr(self, nom) in PLACEHOLDER_SECRETS
+        ]
+        if band:
+            raise ValueError(
+                f"{', '.join(band)} .env.example dagi namunaviy qiymatda qolgan. "
+                "Production uchun yangisini yarating: "
+                'python -c "import secrets; print(secrets.token_urlsafe(64))"'
+            )
+        return self
 
     @property
     def sync_database_url(self) -> str:

@@ -19,6 +19,14 @@ docker compose up --build
 Beshta xizmat ko'tariladi: `db`, `redis`, `api`, `worker`, `beat`. `api` ishga
 tushishda migratsiyalarni o'zi qo'llaydi — qo'shimcha buyruq kerak emas.
 
+`.env.example` dagi `JWT_SECRET` va `ADMIN_TOKEN` **faqat mahalliy ishlab
+chiqish uchun**. `ENVIRONMENT=production` bo'lsa ilova ular bilan ishga
+tushmaydi va nimani almashtirish kerakligini aytadi:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
 | Manzil | Nima |
 |---|---|
 | http://localhost:8000/docs | Swagger UI — endpointlarni shu yerdan sinash mumkin |

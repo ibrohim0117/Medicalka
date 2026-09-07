@@ -53,3 +53,6 @@ logs/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Shaxsiy sharh — repoga tushmaydi
+code_review.md
